@@ -53,12 +53,16 @@ if st.button("Undo Last Cancellation"):
 # ---------------- DISPLAY ----------------
 st.subheader("📊 Seat Status")
 
+cols = st.columns(5)
+
 seats = system.show_seats()
-for s in seats:
-    st.write(s)
 
-st.subheader("⏳ Waiting List")
-st.write(system.show_waiting())
+for i, seat in enumerate(seats):
+    col = cols[i % 5]
 
-st.subheader("🗂️ Cancellation Stack")
-st.write(system.show_cancellations())
+    if "Booked" in seat:
+        col.markdown(f"🔴 {seat}")
+    elif "Locked" in seat:
+        col.markdown(f"🟡 {seat}")
+    else:
+        col.markdown(f"🟢 {seat}")
