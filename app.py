@@ -1,3 +1,6 @@
+movies = ["Doctor Strange", "Avatar 2", "Batman", "Spider-Man"]
+selected_movie = st.sidebar.selectbox("Select Movie", movies)
+
 import streamlit as st
 # Changed this line to match your filename 'structures.py'
 from structures import BookingQueue 
