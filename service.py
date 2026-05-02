@@ -1,6 +1,7 @@
 import time
 from structures import BookingHistory
 
+
 class TicketBookingSystem:
     def __init__(self, max_seats=10, lock_time=120):
         self.max_seats = max_seats
@@ -32,21 +33,21 @@ class TicketBookingSystem:
         return f"Seat {seat} locked for {name}"
 
     def confirm_booking(self, seat_no, name):
-    self._release_expired_locks()
+        self._release_expired_locks()
 
-    if seat_no not in self.locked_seats:
-        return "Seat not locked or expired"
+        if seat_no not in self.locked_seats:
+            return "Seat not locked or expired"
 
-    locked_name, _ = self.locked_seats[seat_no]
+        locked_name, _ = self.locked_seats[seat_no]
 
-    if locked_name != name:
-        return "This seat is locked by another user"
+        if locked_name != name:
+            return "This seat is locked by another user"
 
-    self.locked_seats.pop(seat_no)
-    self.seat_map[seat_no] = name
-    self.history.add_record(name, seat_no, "BOOKED")
+        self.locked_seats.pop(seat_no)
+        self.seat_map[seat_no] = name
+        self.history.add_record(name, seat_no, "BOOKED")
 
-    return f"{name} successfully booked seat {seat_no}"
+        return f"{name} successfully booked seat {seat_no}"
 
     def _release_expired_locks(self):
         current_time = time.time()
