@@ -1,23 +1,24 @@
 import time
 from structures import BookingHistory
 
-
 class TicketBookingSystem:
     def __init__(self, max_seats=10, lock_time=120):
         self.max_seats = max_seats
-        self.lock_time = lock_time  # seconds
+        self.lock_time = lock_time
 
         self.available_seats = set(range(1, max_seats + 1))
-        self.seat_map = {}          # confirmed bookings
-        self.locked_seats = {}      # seat_no → (name, expiry_time)
+        self.seat_map = {}
+        self.locked_seats = {}
 
         self.history = BookingHistory()
         self.stack = []
         self.queue = []
 
-    # ---------------- LOCK SEAT ----------------
     def lock_seat(self, name):
         self._release_expired_locks()
+
+        if not name:
+            return "Invalid name"
 
         if not self.available_seats:
             self.queue.append(name)
@@ -28,23 +29,21 @@ class TicketBookingSystem:
 
         self.locked_seats[seat] = (name, expiry)
 
-        return f"Seat {seat} locked for {name} (expires in {self.lock_time}s)"
+        return f"Seat {seat} locked for {name}"
 
-    # ---------------- CONFIRM ----------------
     def confirm_booking(self, seat_no):
         self._release_expired_locks()
 
         if seat_no not in self.locked_seats:
-            return "Seat not locked or lock expired"
+            return "Seat not locked or expired"
 
-        name, expiry = self.locked_seats.pop(seat_no)
+        name, _ = self.locked_seats.pop(seat_no)
 
         self.seat_map[seat_no] = name
         self.history.add_record(name, seat_no, "BOOKED")
 
-        return f"Booking confirmed: {name} got seat {seat_no}"
+        return f"{name} successfully booked seat {seat_no}"
 
-    # ---------------- AUTO RELEASE ----------------
     def _release_expired_locks(self):
         current_time = time.time()
 
@@ -54,13 +53,12 @@ class TicketBookingSystem:
         ]
 
         for seat in expired:
-            name, _ = self.locked_seats.pop(seat)
+            self.locked_seats.pop(seat)
             self.available_seats.add(seat)
 
-    # ---------------- CANCEL ----------------
     def cancel_ticket(self, seat_no):
         if seat_no not in self.seat_map:
-            return "Invalid seat or not booked"
+            return "Invalid seat"
 
         name = self.seat_map.pop(seat_no)
         self.available_seats.add(seat_no)
@@ -68,20 +66,16 @@ class TicketBookingSystem:
         self.stack.append((name, seat_no))
         self.history.add_record(name, seat_no, "CANCELLED")
 
-        msg = f"Seat {seat_no} cancelled for {name}"
-
-        # assign to waiting list
         if self.queue:
-            next_person = self.queue.pop(0)
+            next_user = self.queue.pop(0)
             new_seat = self.available_seats.pop()
-            self.seat_map[new_seat] = next_person
-            self.history.add_record(next_person, new_seat, "BOOKED")
+            self.seat_map[new_seat] = next_user
+            self.history.add_record(next_user, new_seat, "BOOKED")
 
-            msg += f"\nSeat {new_seat} assigned to {next_person}"
+            return f"{name} cancelled. Seat given to {next_user}"
 
-        return msg
+        return f"{name} cancelled seat {seat_no}"
 
-    # ---------------- UNDO ----------------
     def undo_cancellation(self):
         if not self.stack:
             return "No cancellations"
@@ -93,11 +87,10 @@ class TicketBookingSystem:
             self.seat_map[seat_no] = name
             self.history.add_record(name, seat_no, "REBOOKED")
 
-            return f"{name} got seat {seat_no} back"
+            return f"{name} restored to seat {seat_no}"
 
         return "Undo failed"
 
-    # ---------------- DISPLAY ----------------
     def show_seats(self):
         self._release_expired_locks()
 
@@ -109,7 +102,7 @@ class TicketBookingSystem:
             elif i in self.locked_seats:
                 name, expiry = self.locked_seats[i]
                 remaining = int(expiry - time.time())
-                result.append(f"{i}: Locked by {name} ({remaining}s left)")
+                result.append(f"{i}: Locked ({remaining}s)")
             else:
                 result.append(f"{i}: Available")
 
