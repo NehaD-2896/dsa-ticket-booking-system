@@ -27,10 +27,10 @@ class BookingHistory:
 
     def display(self):
         temp = self.head
-        if not temp:
-            print("No booking history.")
-            return
+        result = []
 
         while temp:
-            print(f"{temp.name} | Seat {temp.seat_no} | {temp.status}")
+            result.append(f"{temp.name} | Seat {temp.seat_no} | {temp.status}")
             temp = temp.next
+
+        return result if result else ["No history"]
