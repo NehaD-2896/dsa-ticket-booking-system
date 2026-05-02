@@ -27,6 +27,10 @@ with col1:
         else:
             st.error("Please enter a valid name")
 
+result = system.lock_seat(name)
+st.success(result)
+st.toast("Seat locked! Complete booking within time ⏳")
+
 # ---------------- CONFIRM ----------------
 st.subheader("✅ Step 2: Confirm Booking")
 
