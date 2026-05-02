@@ -1,25 +1,18 @@
 import heapq
 
-class BookingSystem:
+class BookingQueue:
     def __init__(self):
-        # Using a Min-Heap for Priority Queue
-        # Format: (priority_level, customer_name)
-        # Lower number = Higher priority (e.g., 1 is VIP, 2 is Regular)
-        self.booking_queue = []
+        self._queue = []
+        self._index = 0
 
-    def add_request(self, name: str, vip: bool = False):
-        priority = 1 if vip else 2
-        heapq.heappush(self.booking_queue, (priority, name))
-        print(f"Added {name} to queue with priority {priority}")
+    def add_customer(self, customer_name, priority):
+        # Min-heap uses the first element (priority) to sort
+        heapq.heappush(self._queue, (priority, self._index, customer_name))
+        self._index += 1
 
-    def process_next_booking(self):
-        if not self.booking_queue:
-            return "No pending bookings."
-        priority, name = heapq.heappop(self.booking_queue)
-        return f"Processing booking for: {name} (Priority Level: {priority})"
-
-# Quick Test
-system = BookingSystem()
-system.add_request("Alice", vip=False)
-system.add_request("Bob", vip=True) # Bob joins later but is VIP
-print(system.process_next_booking()) # Bob will be processed first!
+    def serve_next(self):
+        if not self._queue:
+            return "No customers in queue."
+        priority, index, name = heapq.heappop(self._queue)
+        status = "Prime" if priority == 1 else "Regular"
+        return f"Serving {status} Customer: {name}"
