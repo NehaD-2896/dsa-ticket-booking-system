@@ -38,7 +38,7 @@ seat_no = st.number_input("Enter seat number to confirm", min_value=1, step=1)
 
 with col2:
     if st.button("Confirm Booking"):
-        st.success(system.confirm_booking(seat_no))
+        st.success(system.confirm_booking(seat_no,name))
 
 # ---------------- CANCEL ----------------
 st.subheader("🗂️ Cancellation Stack")
