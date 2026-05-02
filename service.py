@@ -31,18 +31,22 @@ class TicketBookingSystem:
 
         return f"Seat {seat} locked for {name}"
 
-    def confirm_booking(self, seat_no):
-        self._release_expired_locks()
+    def confirm_booking(self, seat_no, name):
+    self._release_expired_locks()
 
-        if seat_no not in self.locked_seats:
-            return "Seat not locked or expired"
+    if seat_no not in self.locked_seats:
+        return "Seat not locked or expired"
 
-        name, _ = self.locked_seats.pop(seat_no)
+    locked_name, _ = self.locked_seats[seat_no]
 
-        self.seat_map[seat_no] = name
-        self.history.add_record(name, seat_no, "BOOKED")
+    if locked_name != name:
+        return "This seat is locked by another user"
 
-        return f"{name} successfully booked seat {seat_no}"
+    self.locked_seats.pop(seat_no)
+    self.seat_map[seat_no] = name
+    self.history.add_record(name, seat_no, "BOOKED")
+
+    return f"{name} successfully booked seat {seat_no}"
 
     def _release_expired_locks(self):
         current_time = time.time()
