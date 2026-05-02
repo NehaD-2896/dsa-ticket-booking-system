@@ -1,5 +1,5 @@
 import streamlit as st
-from data_structures.priority_queue import BookingQueue
+from structures import BookingQueue
 
 # Initialize the booking system in the "session" so it doesn't reset on every click
 if 'system' not in st.session_state:
