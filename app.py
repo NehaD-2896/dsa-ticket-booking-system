@@ -37,12 +37,15 @@ with col2:
         st.success(system.confirm_booking(seat_no))
 
 # ---------------- CANCEL ----------------
-st.subheader("❌ Cancel Ticket")
+st.subheader("🗂️ Cancellation Stack")
 
-cancel_seat = st.number_input("Enter seat number to cancel", min_value=1, step=1, key="cancel")
+stack = system.show_cancellations()
 
-if st.button("Cancel Ticket"):
-    st.warning(system.cancel_ticket(cancel_seat))
+if stack == ["Empty"] or stack == ["No cancellations"]:
+    st.info("No cancellations yet")
+else:
+    for i, (name, seat) in enumerate(reversed(stack), 1):
+        st.write(f"{i}. {name} (Seat {seat})")
 
 # ---------------- UNDO ----------------
 st.subheader("↩️ Undo Cancellation")
@@ -66,3 +69,13 @@ for i, seat in enumerate(seats):
         col.markdown(f"🟡 {seat}")
     else:
         col.markdown(f"🟢 {seat}")
+
+st.subheader("⏳ Waiting List")
+
+waiting = system.show_waiting()
+
+if waiting == ["Empty"] or waiting == ["Waiting list empty"]:
+    st.info("No users in waiting list")
+else:
+    for i, user in enumerate(waiting, 1):
+        st.write(f"{i}. {user}")
