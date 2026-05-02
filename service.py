@@ -1,3 +1,5 @@
+# service.py
+
 import time
 from structures import BookingHistory
 
@@ -8,17 +10,18 @@ class TicketBookingSystem:
         self.lock_time = lock_time
 
         self.available_seats = set(range(1, max_seats + 1))
-        self.seat_map = {}
-        self.locked_seats = {}
+        self.seat_map = {}        # confirmed bookings
+        self.locked_seats = {}    # seat → (name, expiry)
 
         self.history = BookingHistory()
         self.stack = []
         self.queue = []
 
+    # ---------------- LOCK ----------------
     def lock_seat(self, name):
         self._release_expired_locks()
 
-        if not name:
+        if not name.strip():
             return "Invalid name"
 
         if not self.available_seats:
@@ -32,11 +35,12 @@ class TicketBookingSystem:
 
         return f"Seat {seat} locked for {name}"
 
+    # ---------------- CONFIRM ----------------
     def confirm_booking(self, seat_no, name):
         self._release_expired_locks()
 
         if seat_no not in self.locked_seats:
-            return "Seat not locked or expired"
+            return "You must confirm only the locked seat"
 
         locked_name, _ = self.locked_seats[seat_no]
 
@@ -49,6 +53,7 @@ class TicketBookingSystem:
 
         return f"{name} successfully booked seat {seat_no}"
 
+    # ---------------- EXPIRE LOCK ----------------
     def _release_expired_locks(self):
         current_time = time.time()
 
@@ -61,6 +66,7 @@ class TicketBookingSystem:
             self.locked_seats.pop(seat)
             self.available_seats.add(seat)
 
+    # ---------------- CANCEL ----------------
     def cancel_ticket(self, seat_no):
         if seat_no not in self.seat_map:
             return "Invalid seat"
@@ -81,6 +87,7 @@ class TicketBookingSystem:
 
         return f"{name} cancelled seat {seat_no}"
 
+    # ---------------- UNDO ----------------
     def undo_cancellation(self):
         if not self.stack:
             return "No cancellations"
@@ -96,6 +103,7 @@ class TicketBookingSystem:
 
         return "Undo failed"
 
+    # ---------------- DISPLAY ----------------
     def show_seats(self):
         self._release_expired_locks()
 
