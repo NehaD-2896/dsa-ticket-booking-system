@@ -1,36 +1,38 @@
-movies = ["Doctor Strange", "Avatar 2", "Batman", "Spider-Man"]
-selected_movie = st.sidebar.selectbox("Select Movie", movies)
+# app.py
 
 import streamlit as st
-# Changed this line to match your filename 'structures.py'
-from structures import BookingQueue 
+from service import TicketBookingSystem
 
-if 'system' not in st.session_state:
-    st.session_state.system = BookingQueue()
-    st.session_state.history = []
+if "system" not in st.session_state:
+    st.session_state.system = TicketBookingSystem()
 
-st.set_page_config(page_title="Amazon Ticket System", page_icon="🎟️")
+system = st.session_state.system
 
-st.title("🎟️ Movie Ticket Booking System")
+st.title("🎬 Smart Movie Booking System")
 
-# Sidebar
-st.sidebar.header("New Booking")
-name = st.sidebar.text_input("Customer Name")
-is_prime = st.sidebar.checkbox("Is Prime Member?")
+# Booking
+name = st.text_input("Enter your name")
 
-if st.sidebar.button("Add to Queue"):
-    if name:
-        priority = 1 if is_prime else 2
-        st.session_state.system.add_customer(name, priority)
-        st.session_state.history.append(f"✅ Added {name} ({'Prime' if is_prime else 'Regular'})")
-        st.sidebar.success(f"Added {name}!")
+if st.button("Book Ticket"):
+    st.success(system.book_ticket(name))
 
-# Main logic
-if st.button("Serve Next Customer"):
-    result = st.session_state.system.serve_next()
-    st.session_state.history.append(f"🚀 {result}")
-    st.info(result)
+# Cancel
+seat_no = st.number_input("Seat number to cancel", min_value=1, step=1)
 
-st.header("Activity Log")
-for log in reversed(st.session_state.history):
-    st.write(log)
+if st.button("Cancel Ticket"):
+    st.warning(system.cancel_ticket(seat_no))
+
+# Undo
+if st.button("Undo Cancellation"):
+    st.info(system.undo_cancellation())
+
+# Display
+st.subheader("Seat Status")
+for s in system.show_seats():
+    st.write(s)
+
+st.subheader("Waiting List")
+st.write(system.show_waiting())
+
+st.subheader("Cancellation Stack")
+st.write(system.show_cancellations())
