@@ -1,18 +1,36 @@
-import heapq
+# structures.py
 
-class BookingQueue:
+class Node:
+    def __init__(self, name, seat_no, status):
+        self.name = name
+        self.seat_no = seat_no
+        self.status = status
+        self.next = None
+
+
+class BookingHistory:
     def __init__(self):
-        self._queue = []
-        self._index = 0
+        self.head = None
 
-    def add_customer(self, customer_name, priority):
-        # Min-heap uses the first element (priority) to sort
-        heapq.heappush(self._queue, (priority, self._index, customer_name))
-        self._index += 1
+    def add_record(self, name, seat_no, status):
+        new_node = Node(name, seat_no, status)
 
-    def serve_next(self):
-        if not self._queue:
-            return "No customers in queue."
-        priority, index, name = heapq.heappop(self._queue)
-        status = "Prime" if priority == 1 else "Regular"
-        return f"Serving {status} Customer: {name}"
+        if not self.head:
+            self.head = new_node
+            return
+
+        temp = self.head
+        while temp.next:
+            temp = temp.next
+
+        temp.next = new_node
+
+    def display(self):
+        temp = self.head
+        if not temp:
+            print("No booking history.")
+            return
+
+        while temp:
+            print(f"{temp.name} | Seat {temp.seat_no} | {temp.status}")
+            temp = temp.next
