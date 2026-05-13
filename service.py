@@ -1,128 +1,237 @@
 # service.py
-
+import threading
 import time
-from structures import BookingHistory
+import uuid
+from datetime import date, timedelta
+from structures import (
+    SeatStatus, Show, Booking, BookingHistory, CATEGORY_ROWS
+)
+
+MOVIES = [
+    {"id": "m1", "name": "Kalki 2898 AD",  "genre": "Sci-Fi / Action",   "duration": "3h 01m", "rating": 8.3, "lang": "Telugu", "accent": "#1e3a5f"},
+    {"id": "m2", "name": "Pushpa 2",        "genre": "Action / Drama",    "duration": "3h 20m", "rating": 8.6, "lang": "Telugu", "accent": "#5f1e1e"},
+    {"id": "m3", "name": "Stree 2",         "genre": "Horror / Comedy",   "duration": "2h 15m", "rating": 8.9, "lang": "Hindi",  "accent": "#1e5f3a"},
+    {"id": "m4", "name": "Devara",          "genre": "Action / Thriller", "duration": "2h 57m", "rating": 7.1, "lang": "Telugu", "accent": "#3a1e5f"},
+    {"id": "m5", "name": "Singham Again",   "genre": "Action / Drama",    "duration": "2h 40m", "rating": 6.8, "lang": "Hindi",  "accent": "#5f4a1e"},
+    {"id": "m6", "name": "The Sabarmati Report", "genre": "Drama",        "duration": "2h 05m", "rating": 7.5, "lang": "Hindi",  "accent": "#1e4a5f"},
+]
+
+THEATERS = [
+    "PVR Cinemas – Forum Mall",
+    "INOX – Garuda Mall",
+    "Cinepolis – Orion Mall",
+]
+
+SHOW_TIMES = ["10:00 AM", "1:30 PM", "4:45 PM", "8:15 PM"]
+
+LOCK_TTL = 600  # 10 minutes
 
 
-class TicketBookingSystem:
-    def __init__(self, max_seats=10, lock_time=120):
-        self.max_seats = max_seats
-        self.lock_time = lock_time
+class BookingService:
+    def __init__(self):
+        self._lock    = threading.Lock()
+        self.shows    = {}
+        self.bookings = {}
+        self.history  = BookingHistory()
+        self._init_shows()
+        threading.Thread(target=self._cleanup_loop, daemon=True).start()
 
-        self.available_seats = set(range(1, max_seats + 1))
-        self.seat_map = {}        # confirmed bookings
-        self.locked_seats = {}    # seat → (name, expiry)
+    # ── Seed shows ──────────────────────────────────────────────────────────
+    def _init_shows(self):
+        sid = 1
+        today = date.today()
+        for movie in MOVIES:
+            for offset in range(3):          # today + 2 days
+                show_date = (today + timedelta(days=offset)).strftime("%d %b")
+                for theater in THEATERS:
+                    for show_time in SHOW_TIMES:
+                        show_id = f"S{sid:04d}"
+                        self.shows[show_id] = Show(
+                            show_id, movie["id"], movie["name"],
+                            theater, show_date, show_time
+                        )
+                        sid += 1
 
-        self.history = BookingHistory()
-        self.stack = []
-        self.queue = []
+    # ── Public API ──────────────────────────────────────────────────────────
+    def get_movies(self):
+        return MOVIES
 
-    # ---------------- LOCK ----------------
-    def lock_seat(self, name):
-        self._release_expired_locks()
+    def get_shows_for_movie(self, movie_id):
+        grouped = {}          # date → theater → [show_info]
+        for show in self.shows.values():
+            if show.movie_id != movie_id:
+                continue
+            self._expire_locks(show)
+            avail = sum(1 for s in show.seats.values()
+                        if s.status == SeatStatus.AVAILABLE)
+            grouped.setdefault(show.date, {}).setdefault(show.theater, []).append({
+                "id":        show.id,
+                "time":      show.time,
+                "available": avail,
+                "total":     len(show.seats),
+            })
+        return grouped
 
-        if not name.strip():
-            return "Invalid name"
+    def get_seat_map(self, show_id):
+        show = self.shows.get(show_id)
+        if not show:
+            return None
+        with self._lock:
+            self._expire_locks(show)
+        rows = {}
+        for seat in show.seats.values():
+            rows.setdefault(seat.row, []).append({
+                "id":       seat.id,
+                "number":   seat.number,
+                "category": seat.category.value,
+                "price":    seat.price,
+                "status":   seat.status.value,
+            })
+        for row in rows.values():
+            row.sort(key=lambda s: s["number"])
+        return {
+            "show_id": show_id,
+            "movie":   show.movie_name,
+            "theater": show.theater,
+            "date":    show.date,
+            "time":    show.time,
+            "rows":    dict(sorted(rows.items())),
+        }
 
-        if not self.available_seats:
-            self.queue.append(name)
-            return f"No seats available. {name} added to waiting list"
+    def lock_seats(self, show_id, seat_ids, user_name):
+        """Atomically lock requested seats; fail fast if any unavailable."""
+        with self._lock:
+            show = self.shows.get(show_id)
+            if not show:
+                return {"success": False, "message": "Show not found"}
+            self._expire_locks(show)
 
-        seat = self.available_seats.pop()
-        expiry = time.time() + self.lock_time
+            # Validate ALL seats before touching any
+            for sid in seat_ids:
+                seat = show.seats.get(sid)
+                if not seat:
+                    return {"success": False, "message": f"Seat {sid} not found"}
+                if seat.status != SeatStatus.AVAILABLE:
+                    return {"success": False,
+                            "message": f"Seat {sid} is no longer available. Please re-select."}
 
-        self.locked_seats[seat] = (name, expiry)
+            session_id = str(uuid.uuid4())
+            expiry     = time.time() + LOCK_TTL
+            total      = 0
+            for sid in seat_ids:
+                seat             = show.seats[sid]
+                seat.status      = SeatStatus.LOCKED
+                seat.locked_by   = session_id
+                seat.lock_expiry = expiry
+                total           += seat.price
 
-        return f"Seat {seat} locked for {name}"
+            return {
+                "success":    True,
+                "session_id": session_id,
+                "seat_ids":   seat_ids,
+                "total":      total,
+                "expires_in": LOCK_TTL,
+            }
 
-    # ---------------- CONFIRM ----------------
-    def confirm_booking(self, seat_no, name):
-        self._release_expired_locks()
+    def confirm_booking(self, show_id, session_id, user_name, seat_ids):
+        with self._lock:
+            show = self.shows.get(show_id)
+            if not show:
+                return {"success": False, "message": "Show not found"}
 
-        if seat_no not in self.locked_seats:
-            return "You must confirm only the locked seat"
+            for sid in seat_ids:
+                seat = show.seats.get(sid)
+                if (not seat
+                        or seat.status != SeatStatus.LOCKED
+                        or seat.locked_by != session_id):
+                    return {"success": False,
+                            "message": "Session expired or seat conflict. Please start over."}
 
-        locked_name, _ = self.locked_seats[seat_no]
+            total   = sum(show.seats[sid].price for sid in seat_ids)
+            booking = Booking(user_name, show_id, seat_ids, total)
+            for sid in seat_ids:
+                seat             = show.seats[sid]
+                seat.status      = SeatStatus.BOOKED
+                seat.locked_by   = None
+                seat.lock_expiry = None
+                seat.booked_by   = user_name
 
-        if locked_name != name:
-            return "This seat is locked by another user"
+            self.bookings[booking.id] = booking
+            self.history.add(
+                booking.id, user_name, "BOOKED",
+                f"{show.movie_name} | {show.date} {show.time} | {', '.join(seat_ids)}"
+            )
+            return {
+                "success":    True,
+                "booking_id": booking.id,
+                "seats":      seat_ids,
+                "total":      total,
+                "movie":      show.movie_name,
+                "theater":    show.theater,
+                "date":       show.date,
+                "time":       show.time,
+            }
 
-        self.locked_seats.pop(seat_no)
-        self.seat_map[seat_no] = name
-        self.history.add_record(name, seat_no, "BOOKED")
+    def cancel_booking(self, booking_id):
+        with self._lock:
+            booking = self.bookings.get(booking_id)
+            if not booking:
+                return {"success": False, "message": "Booking not found"}
+            if booking.status == "CANCELLED":
+                return {"success": False, "message": "Already cancelled"}
 
-        return f"{name} successfully booked seat {seat_no}"
+            show   = self.shows.get(booking.show_id)
+            refund = booking.total_price   # full refund (demo policy)
 
-    # ---------------- EXPIRE LOCK ----------------
-    def _release_expired_locks(self):
-        current_time = time.time()
+            if show:
+                for sid in booking.seat_ids:
+                    seat = show.seats.get(sid)
+                    if seat:
+                        seat.status    = SeatStatus.AVAILABLE
+                        seat.booked_by = None
 
-        expired = [
-            seat for seat, (_, expiry) in self.locked_seats.items()
-            if expiry < current_time
-        ]
+            booking.status        = "CANCELLED"
+            booking.refund_amount = refund
+            self.history.add(booking_id, booking.user_name, "CANCELLED",
+                             f"Refund ₹{refund}")
+            return {"success": True, "booking_id": booking_id, "refund": refund}
 
-        for seat in expired:
-            self.locked_seats.pop(seat)
-            self.available_seats.add(seat)
-
-    # ---------------- CANCEL ----------------
-    def cancel_ticket(self, seat_no):
-        if seat_no not in self.seat_map:
-            return "Invalid seat"
-
-        name = self.seat_map.pop(seat_no)
-        self.available_seats.add(seat_no)
-
-        self.stack.append((name, seat_no))
-        self.history.add_record(name, seat_no, "CANCELLED")
-
-        if self.queue:
-            next_user = self.queue.pop(0)
-            new_seat = self.available_seats.pop()
-            self.seat_map[new_seat] = next_user
-            self.history.add_record(next_user, new_seat, "BOOKED")
-
-            return f"{name} cancelled. Seat given to {next_user}"
-
-        return f"{name} cancelled seat {seat_no}"
-
-    # ---------------- UNDO ----------------
-    def undo_cancellation(self):
-        if not self.stack:
-            return "No cancellations"
-
-        name, seat_no = self.stack.pop()
-
-        if seat_no in self.available_seats:
-            self.available_seats.remove(seat_no)
-            self.seat_map[seat_no] = name
-            self.history.add_record(name, seat_no, "REBOOKED")
-
-            return f"{name} restored to seat {seat_no}"
-
-        return "Undo failed"
-
-    # ---------------- DISPLAY ----------------
-    def show_seats(self):
-        self._release_expired_locks()
-
+    def get_all_bookings(self):
         result = []
+        for b in self.bookings.values():
+            show = self.shows.get(b.show_id)
+            result.append({
+                "id":        b.id,
+                "user":      b.user_name,
+                "movie":     show.movie_name  if show else "—",
+                "theater":   show.theater     if show else "—",
+                "date":      show.date        if show else "—",
+                "time":      show.time        if show else "—",
+                "seats":     b.seat_ids,
+                "total":     b.total_price,
+                "status":    b.status,
+                "refund":    b.refund_amount,
+                "booked_at": b.booked_at.strftime("%d %b %H:%M"),
+            })
+        return sorted(result, key=lambda x: x["booked_at"], reverse=True)
 
-        for i in range(1, self.max_seats + 1):
-            if i in self.seat_map:
-                result.append(f"{i}: Booked ({self.seat_map[i]})")
-            elif i in self.locked_seats:
-                name, expiry = self.locked_seats[i]
-                remaining = int(expiry - time.time())
-                result.append(f"{i}: Locked ({remaining}s)")
-            else:
-                result.append(f"{i}: Available")
+    def get_history(self):
+        return self.history.get_recent()
 
-        return result
+    # ── Internals ───────────────────────────────────────────────────────────
+    def _expire_locks(self, show):
+        now = time.time()
+        for seat in show.seats.values():
+            if (seat.status == SeatStatus.LOCKED
+                    and seat.lock_expiry
+                    and seat.lock_expiry < now):
+                seat.status      = SeatStatus.AVAILABLE
+                seat.locked_by   = None
+                seat.lock_expiry = None
 
-    def show_waiting(self):
-        return self.queue if self.queue else ["Empty"]
-
-    def show_cancellations(self):
-        return self.stack if self.stack else ["Empty"]
+    def _cleanup_loop(self):
+        while True:
+            time.sleep(30)
+            with self._lock:
+                for show in self.shows.values():
+                    self._expire_locks(show)
