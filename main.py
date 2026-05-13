@@ -1,36 +1,45 @@
-# main.py
-
+from flask import Flask, request, jsonify
 from service import TicketBookingSystem
 
+app = Flask(__name__)
 system = TicketBookingSystem()
 
-while True:
-    print("\n--- Ticket System ---")
-    print("1. Book")
-    print("2. Cancel")
-    print("3. Undo")
-    print("4. Seats")
-    print("5. Waiting")
-    print("6. Exit")
+@app.route("/")
+def index():
+    return jsonify({"message": "Ticket Booking System is running!"})
 
-    choice = input("Enter choice: ")
+@app.route("/book", methods=["POST"])
+def book():
+    data = request.get_json()
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+    result = system.book_ticket(name)
+    return jsonify({"result": result})
 
-    if choice == "1":
-        name = input("Enter name: ")
-        print(system.book_ticket(name))
+@app.route("/cancel", methods=["POST"])
+def cancel():
+    data = request.get_json()
+    seat = data.get("seat")
+    if seat is None:
+        return jsonify({"error": "Seat number is required"}), 400
+    result = system.cancel_ticket(int(seat))
+    return jsonify({"result": result})
 
-    elif choice == "2":
-        seat = int(input("Enter seat number: "))
-        print(system.cancel_ticket(seat))
+@app.route("/undo", methods=["POST"])
+def undo():
+    result = system.undo_cancellation()
+    return jsonify({"result": result})
 
-    elif choice == "3":
-        print(system.undo_cancellation())
+@app.route("/seats", methods=["GET"])
+def seats():
+    result = system.show_seats()
+    return jsonify({"seats": result})
 
-    elif choice == "4":
-        print("\n".join(system.show_seats()))
+@app.route("/waiting", methods=["GET"])
+def waiting():
+    result = system.show_waiting()
+    return jsonify({"waiting": result})
 
-    elif choice == "5":
-        print(system.show_waiting())
-
-    elif choice == "6":
-        break
+if __name__ == "__main__":
+    app.run(debug=True)
