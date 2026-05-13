@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CineBook</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f17;--surface:#161923;--card:#1d2130;--border:#252a3a;
+  --text:#e8eaf0;--muted:#6b7280;--accent:#e63946;--accent2:#f4a261;
+  --green:#22c55e;--yellow:#fbbf24;--purple:#a78bfa;
+  --radius:10px;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* NAV */
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;gap:2rem;height:54px;position:sticky;top:0;z-index:100}
+.logo{font-size:1.2rem;font-weight:800;color:var(--accent);letter-spacing:-0.02em;cursor:pointer}
+.logo span{color:var(--text)}
+.nav-btn{background:none;border:none;color:var(--muted);font-size:0.88rem;font-weight:600;cursor:pointer;padding:4px 0;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.nav-btn.active,.nav-btn:hover{color:var(--text);border-color:var(--accent)}
+
+/* PAGES */
+.page{display:none;padding:1.5rem;max-width:1100px;margin:0 auto;animation:fadeIn .2s}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* MOVIES GRID */
+.movies-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1.25rem}
+.movie-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform .15s,border-color .2s}
+.movie-card:hover{transform:translateY(-3px);border-color:var(--accent)}
+.movie-poster{height:220px;display:flex;align-items:flex-end;padding:1rem;font-size:1.1rem;font-weight:700;line-height:1.2}
+.movie-info{padding:.75rem}
+.movie-genre{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.3rem}
+.movie-meta{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.badge{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,.07);color:var(--muted)}
+.badge.rating{background:#1e3a1e;color:var(--green)}
+
+/* BACK BTN */
+.back-btn{background:none;border:1px solid var(--border);color:var(--muted);font-size:.82rem;padding:6px 14px;border-radius:6px;cursor:pointer;margin-bottom:1.2rem;transition:color .15s,border-color .15s}
+.back-btn:hover{color:var(--text);border-color:var(--text)}
+
+/* SHOWS PAGE */
+.show-header{margin-bottom:1.5rem}
+.show-header h2{font-size:1.4rem;font-weight:700}
+.show-header p{color:var(--muted);font-size:.85rem;margin-top:.25rem}
+.date-tabs{display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap}
+.date-tab{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 16px;font-size:.82rem;cursor:pointer;transition:all .15s}
+.date-tab.active,.date-tab:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.theater-block{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem;overflow:hidden}
+.theater-name{padding:.85rem 1rem;font-size:.88rem;font-weight:600;border-bottom:1px solid var(--border)}
+.show-times{display:flex;flex-wrap:wrap;gap:.6rem;padding:.85rem 1rem}
+.show-time-btn{border:1px solid var(--border);background:transparent;color:var(--text);border-radius:8px;padding:7px 14px;font-size:.82rem;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;min-width:80px}
+.show-time-btn:hover{border-color:var(--green);color:var(--green)}
+.show-time-btn .avail{font-size:.65rem;color:var(--green);margin-top:2px}
+.show-time-btn .avail.low{color:var(--yellow)}
+.show-time-btn .avail.sold{color:var(--accent)}
+.show-time-btn:disabled{opacity:.4;cursor:default}
+
+/* SEAT MAP */
+.seat-page-layout{display:grid;grid-template-columns:1fr 280px;gap:1.5rem}
+@media(max-width:700px){.seat-page-layout{grid-template-columns:1fr}}
+.screen-wrap{text-align:center;margin-bottom:1.5rem}
+.screen{background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);height:10px;border-radius:50%;margin:0 auto 6px;max-width:600px}
+.screen-label{font-size:.65rem;color:var(--muted);letter-spacing:.2em;text-transform:uppercase}
+.seat-legend{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:.72rem;color:var(--muted)}
+.legend-box{width:16px;height:16px;border-radius:3px;border:1px solid}
+.leg-avail{background:#1e2d1e;border-color:#2d5a2d}
+.leg-sel{background:#7c1d24;border-color:var(--accent)}
+.leg-booked{background:#2a2a2a;border-color:#444}
+.leg-locked{background:#2d2a1a;border-color:#5a4e1a}
+.category-section{margin-bottom:1rem}
+.cat-label{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem;display:flex;justify-content:space-between}
+.seat-row{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.row-label{width:18px;font-size:.7rem;color:var(--muted);text-align:right;flex-shrink:0}
+.aisle{width:20px;flex-shrink:0}
+.seat{width:28px;height:28px;border-radius:4px;border:1px solid;font-size:.65rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .1s,background .1s;flex-shrink:0}
+.seat.available{background:#1e2d1e;border-color:#2d5a2d;color:#4ade80}
+.seat.available:hover{background:#2d4a2d;transform:scale(1.12)}
+.seat.selected{background:#7c1d24;border-color:var(--accent);color:#fff}
+.seat.booked{background:#1e1e1e;border-color:#333;color:#444;cursor:not-allowed}
+.seat.locked{background:#2d2a1a;border-color:#5a4e1a;color:#6b5e30;cursor:not-allowed}
+
+/* SUMMARY PANEL */
+.summary-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;align-self:start;position:sticky;top:66px}
+.summary-title{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.summary-show{font-size:.82rem;color:var(--text);margin-bottom:.25rem}
+.summary-sub{font-size:.75rem;color:var(--muted);margin-bottom:1rem}
+.selected-seats{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:1rem;min-height:30px}
+.sel-chip{background:#7c1d24;border:1px solid var(--accent);border-radius:4px;padding:2px 8px;font-size:.72rem;color:#f87171}
+.price-row{display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:.4rem;color:var(--muted)}
+.price-total{display:flex;justify-content:space-between;font-size:1rem;font-weight:700;color:var(--text);border-top:1px solid var(--border);padding-top:.75rem;margin-top:.5rem}
+.lock-timer{background:#1e2a1e;border:1px solid #2d5a2d;border-radius:6px;padding:.6rem .75rem;font-size:.78rem;color:var(--green);margin-bottom:.75rem;text-align:center;display:none}
+.lock-timer.visible{display:block}
+.btn{width:100%;border:none;border-radius:8px;padding:11px;font-size:.9rem;font-weight:700;cursor:pointer;margin-top:.5rem;transition:opacity .15s,transform .1s}
+.btn:hover{opacity:.88}.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-red{background:var(--accent);color:#fff}
+.btn-green{background:var(--green);color:#052e16}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+
+/* CONFIRM MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200}
+.modal-bg.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:1.75rem;width:min(420px,95vw)}
+.modal h3{font-size:1.1rem;font-weight:700;margin-bottom:1rem}
+.modal label{font-size:.75rem;color:var(--muted);display:block;margin-bottom:.35rem;margin-top:.75rem}
+.modal input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:9px 12px;font-size:.88rem;color:var(--text);outline:none}
+.modal input:focus{border-color:var(--accent)}
+
+/* CONFIRMATION PAGE */
+.confirm-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:2rem;max-width:480px;margin:2rem auto;text-align:center}
+.confirm-icon{font-size:3rem;margin-bottom:.75rem}
+.confirm-id{font-size:1.6rem;font-weight:800;color:var(--green);letter-spacing:.1em;margin:.5rem 0}
+.confirm-detail{font-size:.85rem;color:var(--muted);margin:.25rem 0}
+.confirm-seats{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:.75rem 0}
+.confirm-chip{background:#1e2d1e;border:1px solid #2d5a2d;border-radius:4px;padding:3px 10px;font-size:.75rem;color:var(--green)}
+.confirm-price{font-size:1.25rem;font-weight:700;color:var(--text);margin:.75rem 0}
+
+/* MY BOOKINGS */
+.booking-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:.75rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem}
+.booking-main h4{font-size:.92rem;font-weight:700;margin-bottom:.25rem}
+.booking-meta{font-size:.75rem;color:var(--muted)}
+.booking-right{text-align:right}
+.booking-price{font-size:.95rem;font-weight:700}
+.status-badge{font-size:.65rem;font-weight:700;padding:3px 8px;border-radius:4px;display:inline-block;margin-top:4px}
+.status-confirmed{background:#1e3a1e;color:var(--green)}
+.status-cancelled{background:#3a1e1e;color:#f87171}
+.btn-cancel-bk{border:1px solid #5a2d2d;background:transparent;color:#f87171;border-radius:6px;padding:5px 12px;font-size:.75rem;cursor:pointer;transition:background .15s}
+.btn-cancel-bk:hover{background:#3a1e1e}
+
+/* HISTORY */
+.history-row{display:flex;justify-content:space-between;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--border);font-size:.78rem;gap:.75rem}
+.history-row:last-child{border:none}
+.h-action{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px}
+.ha-booked{background:#1e3a1e;color:var(--green)}
+.ha-cancelled{background:#3a1e1e;color:#f87171}
+
+/* TOAST */
+#toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:.85rem;color:var(--text);opacity:0;transition:transform .3s,opacity .3s;z-index:300;max-width:340px;text-align:center;pointer-events:none}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* MISC */
+.section-title{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.empty{color:var(--muted);font-size:.85rem;text-align:center;padding:2rem;font-style:italic}
+hr.divider{border:none;border-top:1px solid var(--border);margin:.75rem 0}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo" onclick="nav('movies')">Cine<span>Book</span></div>
+  <button class="nav-btn active" id="nav-movies" onclick="nav('movies')">Movies</button>
+  <button class="nav-btn" id="nav-bookings" onclick="nav('bookings')">My Bookings</button>
+  <button class="nav-btn" id="nav-history" onclick="nav('history')">Activity</button>
+</nav>
+
+<!-- MOVIES PAGE -->
+<div class="page active" id="page-movies">
+  <div style="margin-bottom:1.25rem">
+    <div style="font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem">Now Showing — Bengaluru</div>
+    <div class="movies-grid" id="movies-grid"></div>
+  </div>
+</div>
+
+<!-- SHOWS PAGE -->
+<div class="page" id="page-shows">
+  <button class="back-btn" onclick="nav('movies')">← Back to Movies</button>
+  <div class="show-header">
+    <h2 id="show-movie-name"></h2>
+    <p id="show-movie-meta"></p>
+  </div>
+  <div class="date-tabs" id="date-tabs"></div>
+  <div id="theater-list"></div>
+</div>
+
+<!-- SEATS PAGE -->
+<div class="page" id="page-seats">
+  <button class="back-btn" id="seats-back-btn">← Back to Showtimes</button>
+  <div class="seat-page-layout">
+    <div>
+      <div class="section-title" id="seat-show-title"></div>
+      <div class="screen-wrap"><div class="screen"></div><div class="screen-label">Screen this way</div></div>
+      <div class="seat-legend">
+        <div class="legend-item"><div class="legend-box leg-avail"></div>Available</div>
+        <div class="legend-item"><div class="legend-box leg-sel"></div>Selected</div>
+        <div class="legend-item"><div class="legend-box leg-booked"></div>Booked</div>
+        <div class="legend-item"><div class="legend-box leg-locked"></div>Being booked</div>
+      </div>
+      <div id="seat-map-container"></div>
+    </div>
+    <div class="summary-panel">
+      <div class="summary-title">Your Booking</div>
+      <div class="summary-show" id="sum-movie"></div>
+      <div class="summary-sub" id="sum-details"></div>
+      <hr class="divider"/>
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:.4rem">Selected Seats</div>
+      <div class="selected-seats" id="selected-chips"><span style="font-size:.75rem;color:var(--muted);font-style:italic">None selected</span></div>
+      <hr class="divider"/>
+      <div id="price-breakdown"></div>
+      <div class="lock-timer" id="lock-timer">⏱ Seats reserved: <span id="timer-count">10:00</span></div>
+      <button class="btn btn-red" id="btn-proceed" onclick="proceedToLock()" disabled>Select Seats</button>
+      <button class="btn btn-outline" id="btn-confirm-booking" onclick="openConfirmModal()" style="display:none">Confirm Booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRMATION PAGE -->
+<div class="page" id="page-confirm">
+  <div class="confirm-card">
+    <div class="confirm-icon">🎉</div>
+    <div style="font-size:.8rem;color:var(--muted)">Booking Confirmed!</div>
+    <div class="confirm-id" id="conf-id"></div>
+    <div class="confirm-detail" id="conf-movie"></div>
+    <div class="confirm-detail" id="conf-theater"></div>
+    <div class="confirm-detail" id="conf-datetime"></div>
+    <div class="confirm-seats" id="conf-seats"></div>
+    <div class="confirm-price" id="conf-price"></div>
+    <hr class="divider" style="max-width:300px;margin:1rem auto"/>
+    <button class="btn btn-outline" style="max-width:200px;margin:0 auto" onclick="nav('bookings')">View My Bookings</button>
+    <button class="btn btn-red" style="max-width:200px;margin:.5rem auto" onclick="nav('movies')">Book Another</button>
+  </div>
+</div>
+
+<!-- MY BOOKINGS PAGE -->
+<div class="page" id="page-bookings">
+  <div class="section-title">My Bookings</div>
+  <div id="bookings-list"></div>
+</div>
+
+<!-- ACTIVITY PAGE -->
+<div class="page" id="page-history">
+  <div class="section-title">Activity Log</div>
+  <div id="history-list"></div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-bg" id="confirm-modal">
+  <div class="modal">
+    <h3>Confirm Booking</h3>
+    <div id="modal-summary" style="background:var(--bg);border-radius:8px;padding:.75rem;font-size:.82rem;color:var(--muted);margin-bottom:.5rem"></div>
+    <label>Your Name</label>
+    <input type="text" id="user-name-input" placeholder="Enter your name" />
+    <button class="btn btn-red" style="margin-top:1rem" onclick="confirmBooking()">Pay & Confirm</button>
+    <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const state = {
+  movies: [],
+  selectedMovie: null,
+  selectedShowId: null,
+  showData: null,
+  selectedSeats: [],
+  lockSession: null,
+  lockSeatIds: [],
+  lockTotal: 0,
+  timerInterval: null,
+  lockExpiry: null,
+  currentDate: null,
+};
+
+// ── Navigation ─────────────────────────────────────────────────────────────
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  const nb = document.getElementById('nav-' + page);
+  if (nb) nb.classList.add('active');
+  if (page === 'bookings') loadBookings();
+  if (page === 'history') loadHistory();
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+let toastTO;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTO);
+  toastTO = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── Movies ─────────────────────────────────────────────────────────────────
+async function loadMovies() {
+  const movies = await fetch('/api/movies').then(r => r.json());
+  state.movies = movies;
+  const grid = document.getElementById('movies-grid');
+  grid.innerHTML = movies.map(m => `
+    <div class="movie-card" onclick="selectMovie('${m.id}')">
+      <div class="movie-poster" style="background:${m.accent}">${m.name}</div>
+      <div class="movie-info">
+        <div class="movie-genre">${m.genre}</div>
+        <div class="movie-meta">
+          <span class="badge rating">★ ${m.rating}</span>
+          <span class="badge">${m.lang}</span>
+          <span class="badge">${m.duration}</span>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Shows ──────────────────────────────────────────────────────────────────
+async function selectMovie(movieId) {
+  state.selectedMovie = state.movies.find(m => m.id === movieId);
+  document.getElementById('show-movie-name').textContent = state.selectedMovie.name;
+  document.getElementById('show-movie-meta').textContent =
+    `${state.selectedMovie.genre} • ${state.selectedMovie.duration} • ${state.selectedMovie.lang}`;
+  nav('shows');
+  const data = await fetch('/api/shows/' + movieId).then(r => r.json());
+  const dates = Object.keys(data).sort();
+  state.currentDate = dates[0];
+  // Date tabs
+  document.getElementById('date-tabs').innerHTML = dates.map((d, i) =>
+    `<div class="date-tab ${i===0?'active':''}" onclick="selectDate('${d}',this)">${d}</div>`
+  ).join('');
+  state._showData = data;
+  renderTheaters(dates[0]);
+}
+
+function selectDate(date, el) {
+  document.querySelectorAll('.date-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  state.currentDate = date;
+  renderTheaters(date);
+}
+
+function renderTheaters(date) {
+  const theaters = state._showData[date] || {};
+  const el = document.getElementById('theater-list');
+  if (!Object.keys(theaters).length) { el.innerHTML = '<div class="empty">No shows available</div>'; return; }
+  el.innerHTML = Object.entries(theaters).map(([theater, shows]) => `
+    <div class="theater-block">
+      <div class="theater-name">${theater}</div>
+      <div class="show-times">
+        ${shows.map(s => {
+          const pct = s.available / s.total;
+          const cls = pct === 0 ? 'sold' : pct < 0.2 ? 'low' : '';
+          const label = pct === 0 ? 'Sold Out' : `${s.available} left`;
+          return `<button class="show-time-btn" onclick="selectShow('${s.id}')" ${pct===0?'disabled':''}>
+            <span>${s.time}</span>
+            <span class="avail ${cls}">${label}</span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// ── Seat Map ───────────────────────────────────────────────────────────────
+async function selectShow(showId) {
+  state.selectedShowId = showId;
+  state.selectedSeats = [];
+  state.lockSession = null;
+  clearInterval(state.timerInterval);
+  nav('seats');
+  document.getElementById('seats-back-btn').onclick = () => nav('shows');
+  const data = await fetch('/api/seatmap/' + showId).then(r => r.json());
+  state.showData = data;
+  document.getElementById('seat-show-title').textContent =
+    `${data.movie} — ${data.theater} — ${data.date} ${data.time}`;
+  document.getElementById('sum-movie').textContent = data.movie;
+  document.getElementById('sum-details').textContent = `${data.date} ${data.time} • ${data.theater}`;
+  renderSeatMap(data.rows);
+  updateSummary();
+}
+
+const CAT_ORDER = ['A','B','C','D','E','F','G'];
+const CAT_LABELS = {A:'Recliner',B:'Recliner',C:'Premium',D:'Premium',E:'Normal',F:'Normal',G:'Normal'};
+const CAT_PRICES = {A:400,B:400,C:250,D:250,E:150,F:150,G:150};
+
+function renderSeatMap(rows) {
+  const container = document.getElementById('seat-map-container');
+  // Group rows by category
+  const cats = {RECLINER:['A','B'],PREMIUM:['C','D'],NORMAL:['E','F','G']};
+  const catPrices = {RECLINER:400,PREMIUM:250,NORMAL:150};
+  let html = '';
+  for (const [cat, rowLetters] of Object.entries(cats)) {
+    html += `<div class="category-section">
+      <div class="cat-label"><span>${cat}</span><span>₹${catPrices[cat]}</span></div>`;
+    for (const row of rowLetters) {
+      if (!rows[row]) continue;
+      html += `<div class="seat-row"><span class="row-label">${row}</span>`;
+      const seats = rows[row];
+      const mid = Math.floor(seats.length / 2);
+      seats.forEach((seat, i) => {
+        if (i === mid) html += '<div class="aisle"></div>';
+        html += `<div class="seat ${seat.status}" id="s-${seat.id}"
+          data-id="${seat.id}" data-price="${seat.price}" data-status="${seat.status}"
+          onclick="toggleSeat('${seat.id}',${seat.price},'${seat.status}')">${seat.number}</div>`;
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function toggleSeat(seatId, price, status) {
+  if (state.lockSession) return; // already locked, no changes
+  if (status === 'booked' || status === 'locked') return;
+  const el = document.getElementById('s-' + seatId);
+  const idx = state.selectedSeats.findIndex(s => s.id === seatId);
+  if (idx >= 0) {
+    state.selectedSeats.splice(idx, 1);
+    el.classList.remove('selected');
+    el.classList.add('available');
+  } else {
+    if (state.selectedSeats.length >= 8) { toast('Max 8 seats per booking'); return; }
+    state.selectedSeats.push({ id: seatId, price });
+    el.classList.remove('available');
+    el.classList.add('selected');
+  }
+  updateSummary();
+}
+
+function updateSummary() {
+  const chips = document.getElementById('selected-chips');
+  const breakdown = document.getElementById('price-breakdown');
+  const btn = document.getElementById('btn-proceed');
+
+  if (!state.selectedSeats.length) {
+    chips.innerHTML = '<span style="font-size:.75rem;color:var(--muted);font-style:italic">None selected</span>';
+    breakdown.innerHTML = '';
+    btn.textContent = 'Select Seats';
+    btn.disabled = true;
+    return;
+  }
+
+  chips.innerHTML = state.selectedSeats.map(s =>
+    `<div class="sel-chip">${s.id}</div>`).join('');
+
+  const total = state.selectedSeats.reduce((a, s) => a + s.price, 0);
+  const conv = Math.round(total * 0.04);
+  breakdown.innerHTML = `
+    <div class="price-row"><span>Subtotal (${state.selectedSeats.length} seat${state.selectedSeats.length>1?'s':''})</span><span>₹${total}</span></div>
+    <div class="price-row"><span>Convenience fee</span><span>₹${conv}</span></div>
+    <div class="price-total"><span>Total</span><span>₹${total + conv}</span></div>`;
+
+  if (!state.lockSession) {
+    btn.textContent = `Lock ${state.selectedSeats.length} Seat${state.selectedSeats.length>1?'s':''}`;
+    btn.disabled = false;
+  }
+}
+
+// ── Lock seats ─────────────────────────────────────────────────────────────
+async function proceedToLock() {
+  const seatIds = state.selectedSeats.map(s => s.id);
+  const res = await fetch('/api/lock', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({show_id: state.selectedShowId, seat_ids: seatIds, user_name: 'guest'})
+  }).then(r => r.json());
+
+  if (!res.success) { toast('⚠ ' + res.message); await refreshSeatMap(); return; }
+
+  state.lockSession = res.session_id;
+  state.lockSeatIds = seatIds;
+  state.lockTotal   = res.total;
+  state.lockExpiry  = Date.now() + res.expires_in * 1000;
+
+  document.getElementById('btn-proceed').style.display = 'none';
+  document.getElementById('btn-confirm-booking').style.display = 'block';
+  document.getElementById('lock-timer').classList.add('visible');
+  startTimer(res.expires_in);
+  toast('✅ Seats locked! Complete booking within 10 minutes.');
+}
+
+function startTimer(seconds) {
+  clearInterval(state.timerInterval);
+  let remaining = seconds;
+  const el = document.getElementById('timer-count');
+  state.timerInterval = setInterval(() => {
+    remaining--;
+    const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const s = String(remaining % 60).padStart(2, '0');
+    el.textContent = `${m}:${s}`;
+    if (remaining <= 0) {
+      clearInterval(state.timerInterval);
+      state.lockSession = null;
+      toast('⏱ Session expired. Please re-select seats.');
+      document.getElementById('btn-proceed').style.display = 'block';
+      document.getElementById('btn-confirm-booking').style.display = 'none';
+      document.getElementById('lock-timer').classList.remove('visible');
+      refreshSeatMap();
+    }
+  }, 1000);
+}
+
+async function refreshSeatMap() {
+  state.selectedSeats = [];
+  const data = await fetch('/api/seatmap/' + state.selectedShowId).then(r => r.json());
+  state.showData = data;
+  renderSeatMap(data.rows);
+  updateSummary();
+}
+
+// ── Confirm modal ──────────────────────────────────────────────────────────
+function openConfirmModal() {
+  const total = state.lockTotal;
+  const conv  = Math.round(total * 0.04);
+  document.getElementById('modal-summary').innerHTML =
+    `<strong>${state.showData.movie}</strong><br/>
+     ${state.showData.date} ${state.showData.time}<br/>
+     Seats: ${state.lockSeatIds.join(', ')}<br/>
+     <strong>Total: ₹${total + conv}</strong>`;
+  document.getElementById('confirm-modal').classList.add('open');
+  document.getElementById('user-name-input').focus();
+}
+
+function closeModal() {
+  document.getElementById('confirm-modal').classList.remove('open');
+}
+
+async function confirmBooking() {
+  const name = document.getElementById('user-name-input').value.trim();
+  if (!name) { toast('Please enter your name'); return; }
+  if (!state.lockSession) { toast('Session expired. Please re-select seats.'); closeModal(); return; }
+
+  const res = await fetch('/api/confirm', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      show_id: state.selectedShowId,
+      session_id: state.lockSession,
+      user_name: name,
+      seat_ids: state.lockSeatIds,
+    })
+  }).then(r => r.json());
+
+  closeModal();
+  if (!res.success) { toast('⚠ ' + res.message); return; }
+
+  clearInterval(state.timerInterval);
+  state.lockSession = null;
+
+  // Show confirmation page
+  const conv = Math.round(res.total * 0.04);
+  document.getElementById('conf-id').textContent = res.booking_id;
+  document.getElementById('conf-movie').textContent = res.movie;
+  document.getElementById('conf-theater').textContent = res.theater;
+  document.getElementById('conf-datetime').textContent = `${res.date} • ${res.time}`;
+  document.getElementById('conf-seats').innerHTML = res.seats.map(s =>
+    `<span class="confirm-chip">${s}</span>`).join('');
+  document.getElementById('conf-price').textContent = `₹${res.total + conv} Paid`;
+  nav('confirm');
+}
+
+// ── My Bookings ────────────────────────────────────────────────────────────
+async function loadBookings() {
+  const bookings = await fetch('/api/bookings').then(r => r.json());
+  const el = document.getElementById('bookings-list');
+  if (!bookings.length) { el.innerHTML = '<div class="empty">No bookings yet</div>'; return; }
+  el.innerHTML = bookings.map(b => `
+    <div class="booking-card">
+      <div class="booking-main">
+        <h4>${b.movie}</h4>
+        <div class="booking-meta">${b.theater}</div>
+        <div class="booking-meta">${b.date} • ${b.time} • Seats: ${b.seats.join(', ')}</div>
+        <div class="booking-meta">Booked ${b.booked_at}</div>
+      </div>
+      <div class="booking-right">
+        <div class="booking-price">₹${b.total}</div>
+        <div><span class="status-badge ${b.status==='CONFIRMED'?'status-confirmed':'status-cancelled'}">${b.status}</span></div>
+        ${b.status==='CONFIRMED' ? `<button class="btn-cancel-bk" onclick="cancelBooking('${b.id}',this)">Cancel</button>` : `<div style="font-size:.72rem;color:var(--muted);margin-top:4px">Refund ₹${b.refund}</div>`}
+      </div>
+    </div>`).join('');
+}
+
+async function cancelBooking(bookingId, btn) {
+  if (!confirm('Cancel this booking? You will receive a full refund.')) return;
+  const res = await fetch('/api/cancel/' + bookingId, {method:'POST'}).then(r => r.json());
+  if (res.success) { toast(`Booking cancelled. Refund ₹${res.refund} processed.`); loadBookings(); }
+  else toast('⚠ ' + res.message);
+}
+
+// ── History ────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const items = await fetch('/api/history').then(r => r.json());
+  const el = document.getElementById('history-list');
+  if (!items.length) { el.innerHTML = '<div class="empty">No activity yet</div>'; return; }
+  el.innerHTML = `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem">` +
+    items.map(h => `
+      <div class="history-row">
+        <div>
+          <span style="font-weight:600">${h.user}</span>
+          <span style="color:var(--muted);margin-left:6px">${h.detail}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:.5rem;flex-shrink:0">
+          <span class="h-action ${h.action==='BOOKED'?'ha-booked':'ha-cancelled'}">${h.action}</span>
+          <span style="color:var(--muted);font-size:.7rem">${h.time}</span>
+        </div>
+      </div>`).join('') + '</div>';
+}
+
+// ── Enter key on modal ─────────────────────────────────────────────────────
+document.getElementById('user-name-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmBooking();
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+loadMovies();
+</script>
+</body>
+</html>
