@@ -1,45 +1,71 @@
-from flask import Flask, request, jsonify
-from service import TicketBookingSystem
+# main.py
+from flask import Flask, request, jsonify, render_template
+from service import BookingService
 
-app = Flask(__name__)
-system = TicketBookingSystem()
+app     = Flask(__name__)
+service = BookingService()
+
 
 @app.route("/")
 def index():
-    return jsonify({"message": "Ticket Booking System is running!"})
+    return render_template("index.html")
 
-@app.route("/book", methods=["POST"])
-def book():
-    data = request.get_json()
-    name = data.get("name", "").strip()
-    if not name:
-        return jsonify({"error": "Name is required"}), 400
-    result = system.book_ticket(name)
-    return jsonify({"result": result})
 
-@app.route("/cancel", methods=["POST"])
-def cancel():
-    data = request.get_json()
-    seat = data.get("seat")
-    if seat is None:
-        return jsonify({"error": "Seat number is required"}), 400
-    result = system.cancel_ticket(int(seat))
-    return jsonify({"result": result})
+@app.route("/api/movies")
+def movies():
+    return jsonify(service.get_movies())
 
-@app.route("/undo", methods=["POST"])
-def undo():
-    result = system.undo_cancellation()
-    return jsonify({"result": result})
 
-@app.route("/seats", methods=["GET"])
-def seats():
-    result = system.show_seats()
-    return jsonify({"seats": result})
+@app.route("/api/shows/<movie_id>")
+def shows(movie_id):
+    return jsonify(service.get_shows_for_movie(movie_id))
 
-@app.route("/waiting", methods=["GET"])
-def waiting():
-    result = system.show_waiting()
-    return jsonify({"waiting": result})
+
+@app.route("/api/seatmap/<show_id>")
+def seat_map(show_id):
+    data = service.get_seat_map(show_id)
+    if not data:
+        return jsonify({"error": "Show not found"}), 404
+    return jsonify(data)
+
+
+@app.route("/api/lock", methods=["POST"])
+def lock():
+    body = request.get_json()
+    show_id   = body.get("show_id")
+    seat_ids  = body.get("seat_ids", [])
+    user_name = body.get("user_name", "").strip()
+    if not show_id or not seat_ids:
+        return jsonify({"success": False, "message": "show_id and seat_ids required"}), 400
+    return jsonify(service.lock_seats(show_id, seat_ids, user_name))
+
+
+@app.route("/api/confirm", methods=["POST"])
+def confirm():
+    body       = request.get_json()
+    show_id    = body.get("show_id")
+    session_id = body.get("session_id")
+    user_name  = body.get("user_name", "").strip()
+    seat_ids   = body.get("seat_ids", [])
+    if not all([show_id, session_id, user_name, seat_ids]):
+        return jsonify({"success": False, "message": "Missing fields"}), 400
+    return jsonify(service.confirm_booking(show_id, session_id, user_name, seat_ids))
+
+
+@app.route("/api/cancel/<booking_id>", methods=["POST"])
+def cancel(booking_id):
+    return jsonify(service.cancel_booking(booking_id))
+
+
+@app.route("/api/bookings")
+def bookings():
+    return jsonify(service.get_all_bookings())
+
+
+@app.route("/api/history")
+def history():
+    return jsonify(service.get_history())
+
 
 if __name__ == "__main__":
     app.run(debug=True)
