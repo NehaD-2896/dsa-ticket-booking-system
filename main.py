@@ -1,5 +1,5 @@
-# main.py
-from flask import Flask, request, jsonify, render_template
+import re
+from flask import Flask, request, jsonify, send_file
 from service import BookingService
 
 app     = Flask(__name__)
@@ -8,7 +8,7 @@ service = BookingService()
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return send_file("index.html")
 
 
 @app.route("/api/movies")
@@ -31,7 +31,7 @@ def seat_map(show_id):
 
 @app.route("/api/lock", methods=["POST"])
 def lock():
-    body = request.get_json()
+    body      = request.get_json()
     show_id   = body.get("show_id")
     seat_ids  = body.get("seat_ids", [])
     user_name = body.get("user_name", "").strip()
